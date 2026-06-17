@@ -1,0 +1,20 @@
+# Build output
+/build/
+/cmake-build-*/
+bin/
+
+# Local environment / secrets (whitelist IPs etc.)
+.env
+*.local.env
+
+# Editor / OS
+.vscode/
+.vs/
+.idea/
+.DS_Store
+
+# Compiled objects
+*.o
+*.obj
+*.a
+*.so

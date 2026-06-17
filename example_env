@@ -1,0 +1,19 @@
+# Example environment configuration for an OC machine node.
+# Copy to .env and edit. Do NOT commit your real .env.
+
+# TCP port the OC machine listens on for incoming Core-node connections.
+# Mirrors the Qubic network port convention (mainnet 21841, testnet 31841).
+OC_MACHINE_PORT=31841
+
+# Comma-separated list of Core-node IPs allowed to connect (IP whitelist).
+# Only these Core nodes may push OcMachineInvocation bundles to this machine.
+OC_MACHINE_WHITELIST=127.0.0.1
+
+# Whether to re-verify the 451 SchnorrQ signatures in each bundle before acting.
+# The Core node only sends bundles after confirming quorum, so this MAY be off for
+# trusted operators, but a reference deployment should keep it on.
+OC_MACHINE_VERIFY_SIGNATURES=1
+
+# Which interface this machine serves (matches OC_INTERFACE_INDEX in qcore).
+# 0 = Mock
+OC_MACHINE_INTERFACE_INDEX=0
