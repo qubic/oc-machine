@@ -24,3 +24,6 @@ add_subdirectory(oc_interfaces)
 
 # The node: TCP server, connection handling, request dispatch
 add_subdirectory(node)
+
+# Developer tools (test message sender, etc.)
+add_subdirectory(tools)

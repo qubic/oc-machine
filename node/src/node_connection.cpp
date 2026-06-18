@@ -103,25 +103,88 @@ void NodeConnection::run()
             continue;
         }
 
-        // TODO: full streaming read loop. A Core node keeps the connection open and may send
-        // many OcMachineInvocation messages; each is framed by an 8-byte RequestResponseHeader
-        // whose size() gives the total message length. The scaffold reads a single message.
-        const ssize_t n = ::recv(connFd, buffer.data(), buffer.size(), 0);
-        if (n > 0)
-        {
-            const HandleResult result =
-                _handler.handleFramedMessage(buffer.data(), static_cast<std::uint32_t>(n));
-            if (result != HandleResult::Ok)
-            {
-                std::cerr << "NodeConnection: message from " << ipStr
-                          << " not handled (result " << static_cast<int>(result) << ")\n";
-            }
-        }
-
+        std::cout << "NodeConnection: accepted Core node " << ipStr << "\n";
+        serveConnection(connFd, ipStr);
         ::close(connFd);
+        std::cout << "NodeConnection: connection from " << ipStr << " closed\n";
     }
 
     _running = false;
+}
+
+namespace
+{
+
+// Read exactly `len` bytes into `dst`, looping over partial reads. Returns true on success,
+// false on peer close (0) or error.
+bool recvAll(int fd, std::uint8_t* dst, std::uint32_t len)
+{
+    std::uint32_t got = 0;
+    while (got < len)
+    {
+        const ssize_t n = ::recv(fd, dst + got, len - got, 0);
+        if (n == 0)
+        {
+            return false; // peer closed
+        }
+        if (n < 0)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }
+            return false; // error
+        }
+        got += static_cast<std::uint32_t>(n);
+    }
+    return true;
+}
+
+} // namespace
+
+void NodeConnection::serveConnection(int connFd, const char* peerIp)
+{
+    // A Core node keeps the connection open and streams framed messages. Each is an 8-byte
+    // RequestResponseHeader whose size() gives the TOTAL message length (header + body),
+    // followed by size()-8 body bytes.
+    std::vector<std::uint8_t> buffer(sizeof(oc_common::RequestResponseHeader) +
+                                     oc_common::MAX_OC_MACHINE_INVOCATION_BODY_SIZE);
+
+    while (_running)
+    {
+        // 1. Read the fixed framing header.
+        if (!recvAll(connFd, buffer.data(), sizeof(oc_common::RequestResponseHeader)))
+        {
+            return; // peer closed or error
+        }
+
+        const auto* header = reinterpret_cast<const oc_common::RequestResponseHeader*>(buffer.data());
+        const std::uint32_t totalSize = header->size();
+
+        // 2. Validate the declared total size against framing + capacity.
+        if (totalSize < sizeof(oc_common::RequestResponseHeader) || totalSize > buffer.size())
+        {
+            std::cerr << "NodeConnection: " << peerIp << " sent bad message size " << totalSize
+                      << "; dropping connection\n";
+            return;
+        }
+
+        // 3. Read the remaining body bytes.
+        const std::uint32_t bodySize = totalSize - sizeof(oc_common::RequestResponseHeader);
+        if (bodySize > 0 &&
+            !recvAll(connFd, buffer.data() + sizeof(oc_common::RequestResponseHeader), bodySize))
+        {
+            return; // peer closed mid-message
+        }
+
+        // 4. Dispatch the complete framed message.
+        const HandleResult result = _handler.handleFramedMessage(buffer.data(), totalSize);
+        if (result != HandleResult::Ok)
+        {
+            std::cerr << "NodeConnection: message from " << peerIp << " not handled (result "
+                      << static_cast<int>(result) << ")\n";
+        }
+    }
 }
 
 void NodeConnection::stop()

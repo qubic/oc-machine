@@ -35,6 +35,9 @@ public:
 private:
     bool isWhitelisted(const std::string& ip) const;
 
+    // Read framed messages from one connected Core node until it closes or errors.
+    void serveConnection(int connFd, const char* peerIp);
+
     const oc_common::Config& _config;
     RequestHandler& _handler;
     int _listenFd = -1;
