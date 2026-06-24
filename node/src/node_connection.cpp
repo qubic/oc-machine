@@ -44,8 +44,18 @@ bool NodeConnection::start()
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(_config.port);
+    if (_config.bindAddress.empty() || _config.bindAddress == "0.0.0.0")
+    {
+        addr.sin_addr.s_addr = INADDR_ANY;
+    }
+    else if (::inet_pton(AF_INET, _config.bindAddress.c_str(), &addr.sin_addr) != 1)
+    {
+        std::cerr << "NodeConnection: invalid bind address " << _config.bindAddress << "\n";
+        ::close(_listenFd);
+        _listenFd = -1;
+        return false;
+    }
 
     if (::bind(_listenFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0)
     {
