@@ -171,7 +171,9 @@ void NodeConnection::serveConnection(int connFd, const char* peerIp)
         const auto* header = reinterpret_cast<const oc_common::RequestResponseHeader*>(buffer.data());
         const std::uint32_t totalSize = header->size();
 
-        // 2. Validate the declared total size against framing + capacity.
+        // 2. Validate the declared total size against framing + capacity. A size smaller than the
+        //    framing header, or larger than our buffer, means the stream is desynced/corrupt; this
+        //    is unrecoverable, so drop the connection (mirrors the OM machine).
         if (totalSize < sizeof(oc_common::RequestResponseHeader) || totalSize > buffer.size())
         {
             std::cerr << "NodeConnection: " << peerIp << " sent bad message size " << totalSize
@@ -179,7 +181,9 @@ void NodeConnection::serveConnection(int connFd, const char* peerIp)
             return;
         }
 
-        // 3. Read the remaining body bytes.
+        // 3. Read the remaining body bytes into the buffer for EVERY message — the Core node
+        //    multiplexes all outgoing peer traffic onto this connection (tick data, peer gossip,
+        //    etc.), so we must consume each message in full to keep the stream in sync.
         const std::uint32_t bodySize = totalSize - sizeof(oc_common::RequestResponseHeader);
         if (bodySize > 0 &&
             !recvAll(connFd, buffer.data() + sizeof(oc_common::RequestResponseHeader), bodySize))
@@ -187,11 +191,17 @@ void NodeConnection::serveConnection(int connFd, const char* peerIp)
             return; // peer closed mid-message
         }
 
-        // 4. Dispatch the complete framed message.
+        // 4. Only act on our message type; skip everything else (mirrors the OM machine, which
+        //    consumes the body then `continue`s on a type mismatch).
+        if (header->type() != oc_common::OC_MACHINE_INVOCATION_TYPE)
+        {
+            continue;
+        }
+
         const HandleResult result = _handler.handleFramedMessage(buffer.data(), totalSize);
         if (result != HandleResult::Ok)
         {
-            std::cerr << "NodeConnection: message from " << peerIp << " not handled (result "
+            std::cerr << "NodeConnection: OcMachineInvocation from " << peerIp << " not handled (result "
                       << static_cast<int>(result) << ")\n";
         }
     }
