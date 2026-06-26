@@ -1,6 +1,6 @@
 // Mock OC interface handler.
 //
-// Counterpart to qcore src/oc_interfaces/Mock.h. The Mock request is a single 64-bit value;
+// Counterpart to Qubic Core src/oc_interfaces/Mock.h. The Mock request is a single 64-bit value;
 // the handler writes that value to a local sink (a file) so tests can confirm an authorized
 // invocation reached the external side end-to-end. No real external system is touched.
 
@@ -14,7 +14,7 @@
 namespace oc_interfaces::mock
 {
 
-// Mirrors qcore OCI::Mock::OcRequest.
+// Mirrors Qubic Core OCI::Mock::OcRequest.
 #pragma pack(push, 1)
 struct MockOcRequest
 {
@@ -22,7 +22,7 @@ struct MockOcRequest
 };
 #pragma pack(pop)
 
-static_assert(sizeof(MockOcRequest) == 8, "MockOcRequest must match qcore OCI::Mock::OcRequest (8 bytes).");
+static_assert(sizeof(MockOcRequest) == 8, "MockOcRequest must match Qubic Core OCI::Mock::OcRequest (8 bytes).");
 
 class MockOcService : public BaseOcService
 {

@@ -8,7 +8,7 @@
 //     wiring real functionality (e.g. signature verification).
 //   - The OC-specific structs below (OcMachineInvocation, SignerEntry, the type value 192)
 //     are NOT yet merged upstream, so they are vendored here, mirroring
-//     qcore: src/oc_core/core_oc_network_messages.h byte-for-byte. When OC merges to
+//     Qubic Core's src/oc_core/core_oc_network_messages.h byte-for-byte. When OC merges to
 //     qubic/core, delete these and include the submodule header instead.
 //
 // This header is intentionally kept self-contained (cstdint only) so the scaffold builds
@@ -21,10 +21,10 @@
 namespace oc_common
 {
 
-// Network message type for an OcMachineInvocation (qcore network_message_type.h).
+// Network message type for an OcMachineInvocation (Qubic Core network_message_type.h).
 inline constexpr std::uint8_t OC_MACHINE_INVOCATION_TYPE = 192;
 
-// Protocol constants (qcore network_messages/common_def.h).
+// Protocol constants (Qubic Core network_messages/common_def.h).
 inline constexpr std::uint32_t NUMBER_OF_COMPUTORS = 676;
 inline constexpr std::uint32_t QUORUM = NUMBER_OF_COMPUTORS * 2 / 3 + 1; // 451
 inline constexpr std::uint32_t SIGNATURE_SIZE = 64;
@@ -33,7 +33,7 @@ inline constexpr std::uint32_t MAX_OC_REQUEST_SIZE = 1024 - 16;          // mirr
 #pragma pack(push, 1)
 
 // The fixed 8-byte framing header that prefixes every message on the Qubic wire
-// (qcore src/network_messages/header.h). Size is a 24-bit little-endian field.
+// (Qubic Core src/network_messages/header.h). Size is a 24-bit little-endian field.
 struct RequestResponseHeader
 {
     std::uint8_t _size[3];
@@ -58,16 +58,16 @@ struct RequestResponseHeader
 
 static_assert(sizeof(RequestResponseHeader) == 8, "RequestResponseHeader must be 8 bytes.");
 
-// Single (computorIndex, signature) pair in an authorization bundle (qcore spec §8).
+// Single (computorIndex, signature) pair in an authorization bundle.
 struct SignerEntry
 {
     std::uint16_t computorIndex;            // index into the issuing epoch's computor list
     std::uint8_t signature[SIGNATURE_SIZE]; // SchnorrQ over the canonical auth message
 };
 
-static_assert(sizeof(SignerEntry) == 66, "SignerEntry must be exactly 66 bytes (spec §8).");
+static_assert(sizeof(SignerEntry) == 66, "SignerEntry must be exactly 66 bytes.");
 
-// Fixed header of an OcMachineInvocation (qcore spec §8). Followed on the wire by:
+// Fixed header of an OcMachineInvocation. Followed on the wire by:
 //   std::uint8_t requestData[requestSize]
 //   SignerEntry  signers[signatureCount]   (signatureCount == QUORUM)
 struct OcMachineInvocation
@@ -79,7 +79,7 @@ struct OcMachineInvocation
     std::uint16_t signatureCount;    // 2 bytes; MUST equal QUORUM
 };
 
-static_assert(sizeof(OcMachineInvocation) == 16, "OcMachineInvocation header must be exactly 16 bytes (spec §8).");
+static_assert(sizeof(OcMachineInvocation) == 16, "OcMachineInvocation header must be exactly 16 bytes.");
 
 #pragma pack(pop)
 
@@ -89,6 +89,6 @@ inline constexpr std::uint32_t MAX_OC_MACHINE_INVOCATION_BODY_SIZE =
     sizeof(OcMachineInvocation) + MAX_OC_REQUEST_SIZE + QUORUM * sizeof(SignerEntry);
 
 static_assert(MAX_OC_MACHINE_INVOCATION_BODY_SIZE == 16 + 1008 + 451 * 66,
-              "Unexpected maximum OcMachineInvocation body size (spec §8.1 ≈ 30,790).");
+              "Unexpected maximum OcMachineInvocation body size (≈ 30,790 bytes).");
 
 } // namespace oc_common

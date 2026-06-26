@@ -5,7 +5,7 @@
 // Usage: send_test_invocation <host> <port> <value>
 //
 // Builds a message with QUORUM signer entries (zeroed signatures — the reference node does not
-// verify them, per OC spec §8). Verifies nothing itself; check the node's Mock sink file.
+// verify them). Verifies nothing itself; check the node's Mock sink file.
 
 #include "oc_common/oc_wire.h"
 
@@ -24,7 +24,7 @@ using namespace oc_common;
 namespace
 {
 
-// Mirrors qcore OCI::Mock::OcRequest.
+// Mirrors Qubic Core OCI::Mock::OcRequest.
 #pragma pack(push, 1)
 struct MockOcRequest
 {

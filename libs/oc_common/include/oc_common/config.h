@@ -26,7 +26,7 @@ struct Config
     // Re-verify the 451 SchnorrQ signatures in each bundle before acting.
     bool verifySignatures = true;
 
-    // Which OC interface this machine serves (matches OC_INTERFACE_INDEX in qcore).
+    // Which OC interface this machine serves (matches OC_INTERFACE_INDEX in Qubic Core).
     std::uint16_t interfaceIndex = 0;
 
     // Load configuration from environment variables. Returns a Config with defaults

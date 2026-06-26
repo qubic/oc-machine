@@ -30,7 +30,7 @@ This repository mirrors the structure of
 There is **no reply path**. The OC protocol provides no return channel; a contract that
 needs to observe an effect does so via a subsequent Oracle query.
 
-## Protocol summary (see qcore `final_OC_spec/oc_protocol_spec.md`)
+## Protocol summary
 
 - The Core node opens an outgoing TCP connection to each configured OC machine and keeps
   it open. The OC machine whitelists the IPs of its configured Core nodes.
@@ -63,7 +63,7 @@ oc_interfaces/   Per-interface handlers (what to do with an authorized bundle)
   core/          BaseOcService abstract base
   mock/          Mock interface: writes the request value to a local sink (for testing)
 libs/
-  oc_common/     Shared config + the OC wire-message definitions (mirror of qcore)
+  oc_common/     Shared config + the OC wire-message definitions (mirror of Qubic Core)
 tools/           send_test_invocation: frames a synthetic bundle for end-to-end testing
 submodules/      qubic_core submodule: shared upstream primitives (header, message types)
 ```
