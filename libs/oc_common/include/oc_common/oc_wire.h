@@ -8,8 +8,11 @@
 //     wiring real functionality (e.g. signature verification).
 //   - The OC-specific structs below (OcMachineInvocation, SignerEntry, the type value 192)
 //     are NOT yet merged upstream, so they are vendored here, mirroring
-//     Qubic Core's src/oc_core/core_oc_network_messages.h byte-for-byte. When OC merges to
-//     qubic/core, delete these and include the submodule header instead.
+//     Qubic Core's src/oc_core/core_oc_network_messages.h byte-for-byte.
+//
+// REMOVE-WHEN-UPSTREAM: once the OC mechanism is part of qubic/core, these structs exist in
+// the submodule. Delete the vendored copies below and include the submodule header instead so
+// they are defined in exactly one place (config below stays — it is OC-machine specific).
 //
 // This header is intentionally kept self-contained (cstdint only) so the scaffold builds
 // without depending on the submodule's include paths. The static_asserts guard the sizes.
