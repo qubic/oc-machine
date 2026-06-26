@@ -1,8 +1,7 @@
 // Entry point for the standalone Mock OC service binary.
 //
-// In the OM machine, oracle services run as separate processes that the node connects to.
-// For the OC scaffold the Mock service is buildable on its own so it can be exercised in
-// isolation; the node also links the handler directly for the in-process path.
+// The Mock service is buildable on its own so it can be exercised in isolation, but the node
+// currently links the handler directly for the in-process path, so this binary is optional.
 //
 // This main is a placeholder: it constructs the handler and reports readiness. Wiring it to
 // receive invocations over an IPC/socket from the node is future work.
