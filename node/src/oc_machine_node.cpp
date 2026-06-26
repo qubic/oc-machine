@@ -11,21 +11,23 @@
 #include "mock/mock_oc_service.h"
 #include "oc_common/config.h"
 
+#include <atomic>
+#include <chrono>
 #include <csignal>
 #include <iostream>
 #include <memory>
+#include <thread>
 
 namespace
 {
 
-node::NodeConnection* g_connection = nullptr;
+// Set by the signal handler only. Setting a lock-free atomic flag is async-signal-safe; the
+// actual teardown (locks, joins, fd close) runs on the main thread after run() returns.
+std::atomic<bool> g_stopRequested{false};
 
 void handleSignal(int)
 {
-    if (g_connection)
-    {
-        g_connection->stop();
-    }
+    g_stopRequested.store(true);
 }
 
 // Construct the handler matching the configured interface index. Returns nullptr if the index
@@ -61,7 +63,6 @@ int main()
     node::RequestHandler requestHandler(config, handler.get());
     node::NodeConnection connection(config, requestHandler);
 
-    g_connection = &connection;
     std::signal(SIGINT, handleSignal);
     std::signal(SIGTERM, handleSignal);
 
@@ -70,7 +71,18 @@ int main()
         return 1;
     }
 
-    connection.run();
+    // Run the accept loop on its own thread so the main thread can wait for a shutdown signal
+    // and then perform the (non-signal-safe) teardown itself.
+    std::thread runThread([&connection]() { connection.run(); });
+
+    while (!g_stopRequested.load())
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    connection.stop(); // main-thread teardown: shuts down connections, joins workers
+    runThread.join();
+
     std::cout << "Qubic OC machine node stopped\n";
     return 0;
 }
