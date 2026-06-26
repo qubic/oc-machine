@@ -144,14 +144,18 @@ void NodeConnection::run()
             _activeConnectionFds.push_back(connFd);
         }
 
-        // Serve this Core node on its own thread so other Core nodes can connect concurrently;
-        // the Core keeps each connection open persistently.
+        // Reap any workers that finished since the last accept, then serve this Core node on
+        // its own thread so other Core nodes can connect concurrently (the Core keeps each
+        // connection open persistently).
+        cleanupFinishedThreads();
         std::lock_guard<std::mutex> lock(_connectionThreadsMutex);
         _connectionThreads.emplace_back([this, connFd, ip = std::string(ipStr)]() {
             serveConnection(connFd, ip.c_str());
             deregisterConnectionFd(connFd);
             ::close(connFd);
             std::cout << "NodeConnection: connection from " << ip << " closed\n";
+            std::lock_guard<std::mutex> lock(_connectionThreadsMutex);
+            _finishedThreadIds.insert(std::this_thread::get_id());
         });
     }
 
@@ -292,6 +296,37 @@ void NodeConnection::deregisterConnectionFd(int fd)
     if (it != _activeConnectionFds.end())
     {
         _activeConnectionFds.erase(it);
+    }
+}
+
+void NodeConnection::cleanupFinishedThreads()
+{
+    std::vector<std::thread> toJoin;
+    {
+        std::lock_guard<std::mutex> lock(_connectionThreadsMutex);
+        auto it = _connectionThreads.begin();
+        while (it != _connectionThreads.end())
+        {
+            auto finished = _finishedThreadIds.find(it->get_id());
+            if (finished != _finishedThreadIds.end())
+            {
+                _finishedThreadIds.erase(finished);
+                toJoin.push_back(std::move(*it));
+                it = _connectionThreads.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+
+    for (auto& t : toJoin)
+    {
+        if (t.joinable())
+        {
+            t.join();
+        }
     }
 }
 

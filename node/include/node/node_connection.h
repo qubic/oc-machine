@@ -15,6 +15,7 @@
 
 #include <atomic>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -46,13 +47,19 @@ private:
     // Remove a connection fd from the active set (called by a worker as it exits).
     void deregisterConnectionFd(int fd);
 
+    // Join and drop worker threads that have finished, so the thread vector does not grow with
+    // dead entries over a long run. Called from the accept loop before spawning a new worker.
+    void cleanupFinishedThreads();
+
     const oc_common::Config& _config;
     RequestHandler& _handler;
     int _listenFd = -1;
     std::atomic<bool> _running{false};
 
-    // One worker thread per connected Core node.
+    // One worker thread per connected Core node. _finishedThreadIds holds the ids of workers
+    // that have returned; cleanupFinishedThreads() joins and removes them from the vector.
     std::vector<std::thread> _connectionThreads;
+    std::set<std::thread::id> _finishedThreadIds;
     std::mutex _connectionThreadsMutex;
 
     // File descriptors of currently-served connections. stop() shuts these down so worker
