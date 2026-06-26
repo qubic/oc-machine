@@ -43,6 +43,9 @@ private:
     // Read framed messages from one connected Core node until it closes or errors.
     void serveConnection(int connFd, const char* peerIp);
 
+    // Remove a connection fd from the active set (called by a worker as it exits).
+    void deregisterConnectionFd(int fd);
+
     const oc_common::Config& _config;
     RequestHandler& _handler;
     int _listenFd = -1;
@@ -51,6 +54,12 @@ private:
     // One worker thread per connected Core node.
     std::vector<std::thread> _connectionThreads;
     std::mutex _connectionThreadsMutex;
+
+    // File descriptors of currently-served connections. stop() shuts these down so worker
+    // threads blocked in recv() unblock and the join() below them completes; each worker
+    // deregisters its own fd when it finishes.
+    std::vector<int> _activeConnectionFds;
+    std::mutex _activeConnectionFdsMutex;
 
     // Serializes the external-effect dispatch so concurrent connections don't race in the
     // interface handler (e.g. interleaved writes to the same sink).

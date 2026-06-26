@@ -1,6 +1,7 @@
 #include "node/node_connection.h"
 #include "oc_common/oc_wire.h"
 
+#include <algorithm>
 #include <arpa/inet.h>
 #include <cerrno>
 #include <cstring>
@@ -137,11 +138,18 @@ void NodeConnection::run()
 
         std::cout << "NodeConnection: accepted Core node " << ipStr << "\n";
 
+        // Track the fd so stop() can shut it down to unblock the worker.
+        {
+            std::lock_guard<std::mutex> lock(_activeConnectionFdsMutex);
+            _activeConnectionFds.push_back(connFd);
+        }
+
         // Serve this Core node on its own thread so other Core nodes can connect concurrently;
         // the Core keeps each connection open persistently.
         std::lock_guard<std::mutex> lock(_connectionThreadsMutex);
         _connectionThreads.emplace_back([this, connFd, ip = std::string(ipStr)]() {
             serveConnection(connFd, ip.c_str());
+            deregisterConnectionFd(connFd);
             ::close(connFd);
             std::cout << "NodeConnection: connection from " << ip << " closed\n";
         });
@@ -250,8 +258,19 @@ void NodeConnection::stop()
         _listenFd = -1;
     }
 
-    // Join all per-connection worker threads. Each returns once its peer closes; closing the
-    // listen fd above stops new ones from being spawned.
+    // Shut down every active connection so any worker blocked in recv() returns and its loop
+    // exits — otherwise the join() below would hang on an idle-but-open Core connection. The
+    // worker still closes its own fd; shutdown() only forces the blocking read to return.
+    {
+        std::lock_guard<std::mutex> lock(_activeConnectionFdsMutex);
+        for (int fd : _activeConnectionFds)
+        {
+            ::shutdown(fd, SHUT_RDWR);
+        }
+    }
+
+    // Join all per-connection worker threads. Each returns once its peer closes or its fd is
+    // shut down above; closing the listen fd stops new ones from being spawned.
     std::vector<std::thread> threads;
     {
         std::lock_guard<std::mutex> lock(_connectionThreadsMutex);
@@ -263,6 +282,16 @@ void NodeConnection::stop()
         {
             t.join();
         }
+    }
+}
+
+void NodeConnection::deregisterConnectionFd(int fd)
+{
+    std::lock_guard<std::mutex> lock(_activeConnectionFdsMutex);
+    auto it = std::find(_activeConnectionFds.begin(), _activeConnectionFds.end(), fd);
+    if (it != _activeConnectionFds.end())
+    {
+        _activeConnectionFds.erase(it);
     }
 }
 
