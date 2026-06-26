@@ -64,8 +64,8 @@ oc_interfaces/   Per-interface handlers (what to do with an authorized bundle)
   mock/          Mock interface: writes the request value to a local sink (for testing)
 libs/
   oc_common/     Shared config + the OC wire-message definitions (mirror of qcore)
-docker/          Container build/deploy (placeholder)
-submodules/      Intended home for the qubic_core submodule (see libs/oc_common note)
+tools/           send_test_invocation: frames a synthetic bundle for end-to-end testing
+submodules/      qubic_core submodule: shared upstream primitives (header, message types)
 ```
 
 ## Build
@@ -80,5 +80,23 @@ cmake --build build
 
 ## Status
 
-**Scaffold only.** TCP server, message parsing, and the Mock handler are skeletons.
-Signature verification and the real external-system handlers are not yet implemented.
+Working Mock reference. The node listens, accepts whitelisted Core connections, and runs
+a streaming receive loop that survives multiplexed Core traffic (it consumes every framed
+message and acts only on `OcMachineInvocation`). It validates framing, message type,
+signature count, and exact size, then dispatches to the interface handler. The Mock
+handler writes the request value to a local sink, verified end-to-end via
+`send_test_invocation`.
+
+Not yet implemented:
+
+- **Signature verification.** The 451 SchnorrQ signatures are not re-verified. The Core
+  node only sends a bundle after confirming quorum, so a trusted operator MAY skip this
+  (the OM machine does the same). It is required only for interfaces that forward to an
+  external verifier (e.g. an EVM contract).
+- **Idempotency / dedup.** Handlers do not yet dedup by `invocationId`; the Mock handler
+  simply appends. See "Interface deduplication constraint" above.
+- **Real external interfaces.** Only the Mock handler exists; no Bitcoin/EVM interface.
+- **Standalone service IPC.** The node links handlers in-process; the separate
+  `mock_oc_service` binary is a placeholder.
+- **Containerisation and an automated test target.** The end-to-end check is a manual
+  `send_test_invocation` run.
