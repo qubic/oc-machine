@@ -5,14 +5,19 @@
 // perspective: the Core node dials out and keeps the connection open; this server accepts and
 // reads. There is no reply on this channel.
 //
-// Scaffold: the accept/read loop is declared but not yet implemented (POSIX sockets).
+// Each accepted connection is served on its own thread, so several Core nodes can stay
+// connected concurrently (the Core keeps its connection open persistently).
 
 #pragma once
 
 #include "node/request_handler.h"
 #include "oc_common/config.h"
 
+#include <atomic>
+#include <mutex>
 #include <string>
+#include <thread>
+#include <vector>
 
 namespace node
 {
@@ -25,11 +30,11 @@ public:
     // Bind + listen on config.port. Returns false on failure.
     bool start();
 
-    // Blocking accept/read loop: accept whitelisted Core nodes, read framed messages, hand
-    // each to the RequestHandler. Returns when stopped or on fatal error.
+    // Blocking accept loop: accept whitelisted Core nodes and serve each on its own thread.
+    // Returns when stopped or on fatal error.
     void run();
 
-    // Request the run loop to stop.
+    // Request the run loop to stop and join all connection threads.
     void stop();
 
 private:
@@ -41,7 +46,15 @@ private:
     const oc_common::Config& _config;
     RequestHandler& _handler;
     int _listenFd = -1;
-    volatile bool _running = false;
+    std::atomic<bool> _running{false};
+
+    // One worker thread per connected Core node.
+    std::vector<std::thread> _connectionThreads;
+    std::mutex _connectionThreadsMutex;
+
+    // Serializes the external-effect dispatch so concurrent connections don't race in the
+    // interface handler (e.g. interleaved writes to the same sink).
+    std::mutex _dispatchMutex;
 };
 
 } // namespace node

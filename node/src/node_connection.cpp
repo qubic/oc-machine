@@ -5,8 +5,12 @@
 #include <cerrno>
 #include <cstring>
 #include <iostream>
+#include <mutex>
 #include <netinet/in.h>
+#include <poll.h>
+#include <string>
 #include <sys/socket.h>
+#include <thread>
 #include <unistd.h>
 #include <vector>
 
@@ -87,16 +91,34 @@ void NodeConnection::run()
     }
 
     _running = true;
-    std::vector<std::uint8_t> buffer(8 + oc_common::MAX_OC_MACHINE_INVOCATION_BODY_SIZE);
 
     while (_running)
     {
+        // poll() with a timeout so stop() (which clears _running and closes _listenFd) is
+        // noticed promptly instead of blocking indefinitely in accept().
+        pollfd pfd{};
+        pfd.fd = _listenFd;
+        pfd.events = POLLIN;
+        const int ready = ::poll(&pfd, 1, 500);
+        if (ready < 0)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }
+            break; // listen fd closed by stop(), or fatal error
+        }
+        if (ready == 0)
+        {
+            continue; // timeout; re-check _running
+        }
+
         sockaddr_in peerAddr{};
         socklen_t peerLen = sizeof(peerAddr);
         const int connFd = ::accept(_listenFd, reinterpret_cast<sockaddr*>(&peerAddr), &peerLen);
         if (connFd < 0)
         {
-            if (errno == EINTR)
+            if (errno == EINTR || !_running)
             {
                 continue;
             }
@@ -114,9 +136,15 @@ void NodeConnection::run()
         }
 
         std::cout << "NodeConnection: accepted Core node " << ipStr << "\n";
-        serveConnection(connFd, ipStr);
-        ::close(connFd);
-        std::cout << "NodeConnection: connection from " << ipStr << " closed\n";
+
+        // Serve this Core node on its own thread so other Core nodes can connect concurrently;
+        // the Core keeps each connection open persistently.
+        std::lock_guard<std::mutex> lock(_connectionThreadsMutex);
+        _connectionThreads.emplace_back([this, connFd, ip = std::string(ipStr)]() {
+            serveConnection(connFd, ip.c_str());
+            ::close(connFd);
+            std::cout << "NodeConnection: connection from " << ip << " closed\n";
+        });
     }
 
     _running = false;
@@ -198,7 +226,13 @@ void NodeConnection::serveConnection(int connFd, const char* peerIp)
             continue;
         }
 
-        const HandleResult result = _handler.handleFramedMessage(buffer.data(), totalSize);
+        // Serialize the dispatch: several Core nodes may be served concurrently, but the
+        // external effect in the interface handler must not be run by two threads at once.
+        HandleResult result;
+        {
+            std::lock_guard<std::mutex> lock(_dispatchMutex);
+            result = _handler.handleFramedMessage(buffer.data(), totalSize);
+        }
         if (result != HandleResult::Ok)
         {
             std::cerr << "NodeConnection: OcMachineInvocation from " << peerIp << " not handled (result "
@@ -212,8 +246,23 @@ void NodeConnection::stop()
     _running = false;
     if (_listenFd >= 0)
     {
-        ::close(_listenFd);
+        ::close(_listenFd); // unblocks poll()/accept() in run()
         _listenFd = -1;
+    }
+
+    // Join all per-connection worker threads. Each returns once its peer closes; closing the
+    // listen fd above stops new ones from being spawned.
+    std::vector<std::thread> threads;
+    {
+        std::lock_guard<std::mutex> lock(_connectionThreadsMutex);
+        threads.swap(_connectionThreads);
+    }
+    for (auto& t : threads)
+    {
+        if (t.joinable())
+        {
+            t.join();
+        }
     }
 }
 
