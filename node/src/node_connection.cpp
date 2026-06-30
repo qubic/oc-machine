@@ -95,8 +95,7 @@ void NodeConnection::run()
 
     while (_running)
     {
-        // poll() with a timeout so stop() (which clears _running and closes _listenFd) is
-        // noticed promptly instead of blocking indefinitely in accept().
+        // Poll with a timeout so stop() clearing _running is noticed without blocking in accept().
         pollfd pfd{};
         pfd.fd = _listenFd;
         pfd.events = POLLIN;
@@ -107,11 +106,11 @@ void NodeConnection::run()
             {
                 continue;
             }
-            break; // listen fd closed by stop(), or fatal error
+            break;
         }
         if (ready == 0)
         {
-            continue; // timeout; re-check _running
+            continue;
         }
 
         sockaddr_in peerAddr{};
@@ -144,9 +143,7 @@ void NodeConnection::run()
             _activeConnectionFds.push_back(connFd);
         }
 
-        // Reap any workers that finished since the last accept, then serve this Core node on
-        // its own thread so other Core nodes can connect concurrently (the Core keeps each
-        // connection open persistently).
+        // Serve each connection on its own thread so multiple Core nodes can stay connected.
         cleanupFinishedThreads();
         std::lock_guard<std::mutex> lock(_connectionThreadsMutex);
         _connectionThreads.emplace_back([this, connFd, ip = std::string(ipStr)]() {
@@ -161,10 +158,8 @@ void NodeConnection::run()
 
     _running = false;
 
-    // Close the listen socket here, on the same thread that polled/accepted it, rather than from
-    // stop() on another thread: closing a fd while another thread polls/accepts on it is undefined
-    // and risks fd-number reuse races. The poll() timeout bounds how long the loop runs after
-    // stop() clears _running.
+    // Close the listen socket on this thread (not from stop()): closing it while this thread
+    // polls/accepts on it would be undefined and risk fd-number reuse.
     if (_listenFd >= 0)
     {
         ::close(_listenFd);
@@ -204,25 +199,21 @@ bool recvAll(int fd, std::uint8_t* dst, std::uint32_t len)
 
 void NodeConnection::serveConnection(int connFd, const char* peerIp)
 {
-    // A Core node keeps the connection open and streams framed messages. Each is an 8-byte
-    // RequestResponseHeader whose size() gives the TOTAL message length (header + body),
-    // followed by size()-8 body bytes.
+    // Each framed message is an 8-byte header whose size() is the total length (header + body).
     std::vector<std::uint8_t> buffer(sizeof(oc_common::RequestResponseHeader) +
                                      oc_common::MAX_OC_MACHINE_INVOCATION_BODY_SIZE);
 
     while (_running)
     {
-        // 1. Read the fixed framing header.
         if (!recvAll(connFd, buffer.data(), sizeof(oc_common::RequestResponseHeader)))
         {
-            return; // peer closed or error
+            return;
         }
 
         const std::uint32_t totalSize =
             reinterpret_cast<const oc_common::RequestResponseHeader*>(buffer.data())->size();
 
-        // 2. A size smaller than the framing header means the stream is desynced/corrupt; this is
-        //    unrecoverable, so drop the connection.
+        // A size below the framing header means the stream is corrupt; drop the connection.
         if (totalSize < sizeof(oc_common::RequestResponseHeader))
         {
             std::cerr << "NodeConnection: " << peerIp << " sent bad message size " << totalSize
@@ -230,11 +221,10 @@ void NodeConnection::serveConnection(int connFd, const char* peerIp)
             return;
         }
 
-        // The Core node multiplexes ALL outgoing peer traffic onto this connection (tick data,
-        // gossip, etc.), some of which is larger than an OcMachineInvocation. Grow the buffer to
-        // fit, capped at MAX_ALLOWED_MESSAGE_SIZE to bound memory against a malformed/hostile
-        // size; only then is the message too large to be legitimate and we drop the connection.
-        constexpr std::uint32_t MAX_ALLOWED_MESSAGE_SIZE = 16 * 1024 * 1024; // 16 MB
+        // The Core multiplexes all peer traffic here (tick data, gossip), some larger than an
+        // OcMachineInvocation. Grow the buffer to fit, capped to bound memory against a hostile
+        // size; beyond the cap the message can't be legitimate, so drop the connection.
+        constexpr std::uint32_t MAX_ALLOWED_MESSAGE_SIZE = 16 * 1024 * 1024;
         if (totalSize > MAX_ALLOWED_MESSAGE_SIZE)
         {
             std::cerr << "NodeConnection: " << peerIp << " sent message exceeding the maximum ("
@@ -243,21 +233,19 @@ void NodeConnection::serveConnection(int connFd, const char* peerIp)
         }
         if (totalSize > buffer.size())
         {
-            buffer.resize(totalSize); // resize() preserves the framing header already read above
+            buffer.resize(totalSize); // preserves the header already read
         }
 
-        // 3. Read the remaining body bytes into the buffer for EVERY message, so the stream stays
-        //    in sync even for messages we do not act on.
+        // Read the body for every message, so the stream stays in sync even for ones we skip.
         const std::uint32_t bodySize = totalSize - sizeof(oc_common::RequestResponseHeader);
         if (bodySize > 0 &&
             !recvAll(connFd, buffer.data() + sizeof(oc_common::RequestResponseHeader), bodySize))
         {
-            return; // peer closed mid-message
+            return;
         }
 
-        // 4. Only act on our message type; skip everything else (mirrors the OM machine, which
-        //    consumes the body then `continue`s on a type mismatch). Re-read the header from the
-        //    buffer: a resize above may have reallocated it.
+        // Act only on OcMachineInvocation; skip other types. Re-read the header: a resize may
+        // have reallocated the buffer.
         const std::uint8_t type =
             reinterpret_cast<const oc_common::RequestResponseHeader*>(buffer.data())->type();
         if (type != oc_common::OC_MACHINE_INVOCATION_TYPE)
@@ -265,8 +253,7 @@ void NodeConnection::serveConnection(int connFd, const char* peerIp)
             continue;
         }
 
-        // Serialize the dispatch: several Core nodes may be served concurrently, but the
-        // external effect in the interface handler must not be run by two threads at once.
+        // Serialize dispatch: the external effect must not run on two threads at once.
         HandleResult result;
         {
             std::lock_guard<std::mutex> lock(_dispatchMutex);
@@ -282,14 +269,12 @@ void NodeConnection::serveConnection(int connFd, const char* peerIp)
 
 void NodeConnection::stop()
 {
-    // Signal the accept loop to exit; it notices within the poll() timeout and closes _listenFd
-    // itself (on its own thread, to avoid a concurrent-close race). We must not close _listenFd
-    // here.
+    // run() closes _listenFd on its own thread once it sees this; closing it here would race
+    // with the poll()/accept() there.
     _running = false;
 
-    // Shut down every active connection so any worker blocked in recv() returns and its loop
-    // exits — otherwise the join() below would hang on an idle-but-open Core connection. The
-    // worker still closes its own fd; shutdown() only forces the blocking read to return.
+    // Shut down active connections so workers blocked in recv() return; otherwise the join below
+    // hangs on an idle-but-open connection. Each worker still closes its own fd.
     {
         std::lock_guard<std::mutex> lock(_activeConnectionFdsMutex);
         for (int fd : _activeConnectionFds)
@@ -298,8 +283,6 @@ void NodeConnection::stop()
         }
     }
 
-    // Join all per-connection worker threads. Each returns once its peer closes or its fd is
-    // shut down above; closing the listen fd stops new ones from being spawned.
     std::vector<std::thread> threads;
     {
         std::lock_guard<std::mutex> lock(_connectionThreadsMutex);
