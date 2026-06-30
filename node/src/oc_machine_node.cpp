@@ -53,6 +53,12 @@ int main()
               << ", interfaceIndex " << config.interfaceIndex
               << ", verifySignatures " << (config.verifySignatures ? "on" : "off") << ")\n";
 
+    if (config.verifySignatures)
+    {
+        std::cerr << "WARNING: signature verification is requested but NOT yet implemented; "
+                     "bundles are accepted without re-verifying the 451 signatures.\n";
+    }
+
     auto handler = makeHandler(config);
     if (!handler)
     {

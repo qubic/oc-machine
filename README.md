@@ -45,7 +45,8 @@ needs to observe an effect does so via a subsequent Oracle query.
   invocationId || paramsDigest)`. An external verifier validates them against the
   epoch's computor list (queried from the standard peer protocol).
 - Because the Core node only sends the bundle after confirming 451 valid signatures, the
-  OC machine MAY trust it without re-verifying. A reference implementation verifies anyway.
+  OC machine MAY trust it without re-verifying. Re-verification is optional and is not yet
+  implemented here (see Status below).
 
 ## Interface deduplication constraint
 
