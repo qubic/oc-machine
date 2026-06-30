@@ -1,12 +1,5 @@
-// TCP server that accepts incoming connections from whitelisted Qubic Core nodes and reads
-// framed OcMachineInvocation messages off the wire.
-//
-// Mirrors the OM machine's NodeConnection. The connection is incoming from the OC machine's
-// perspective: the Core node dials out and keeps the connection open; this server accepts and
-// reads. There is no reply on this channel.
-//
-// Each accepted connection is served on its own thread, so several Core nodes can stay
-// connected concurrently (the Core keeps its connection open persistently).
+// TCP server accepting connections from whitelisted Qubic Core nodes, reading framed
+// OcMachineInvocation messages. Each connection is served on its own thread.
 
 #pragma once
 
@@ -31,24 +24,15 @@ public:
     // Bind + listen on config.port. Returns false on failure.
     bool start();
 
-    // Blocking accept loop: accept whitelisted Core nodes and serve each on its own thread.
-    // Returns when stopped or on fatal error.
     void run();
-
-    // Request the run loop to stop and join all connection threads.
     void stop();
 
 private:
     bool isWhitelisted(const std::string& ip) const;
-
-    // Read framed messages from one connected Core node until it closes or errors.
     void serveConnection(int connFd, const char* peerIp);
-
-    // Remove a connection fd from the active set (called by a worker as it exits).
     void deregisterConnectionFd(int fd);
 
-    // Join and drop worker threads that have finished, so the thread vector does not grow with
-    // dead entries over a long run. Called from the accept loop before spawning a new worker.
+    // Join finished worker threads so the thread vector does not grow over a long run.
     void cleanupFinishedThreads();
 
     const oc_common::Config& _config;
@@ -56,20 +40,16 @@ private:
     int _listenFd = -1;
     std::atomic<bool> _running{false};
 
-    // One worker thread per connected Core node. _finishedThreadIds holds the ids of workers
-    // that have returned; cleanupFinishedThreads() joins and removes them from the vector.
+    // One worker thread per connection; _finishedThreadIds marks workers ready to be reaped.
     std::vector<std::thread> _connectionThreads;
     std::set<std::thread::id> _finishedThreadIds;
     std::mutex _connectionThreadsMutex;
 
-    // File descriptors of currently-served connections. stop() shuts these down so worker
-    // threads blocked in recv() unblock and the join() below them completes; each worker
-    // deregisters its own fd when it finishes.
+    // Active connection fds, so stop() can shut them down to unblock workers stuck in recv().
     std::vector<int> _activeConnectionFds;
     std::mutex _activeConnectionFdsMutex;
 
-    // Serializes the external-effect dispatch so concurrent connections don't race in the
-    // interface handler (e.g. interleaved writes to the same sink).
+    // Serializes handler dispatch so concurrent connections don't race in the external effect.
     std::mutex _dispatchMutex;
 };
 
