@@ -91,9 +91,14 @@ void NodeConnection::run()
         return;
     }
 
+    // Honor a stop that arrived before run() started, so we don't set _running = true over it.
+    if (_stopRequested.load())
+    {
+        return;
+    }
     _running = true;
 
-    while (_running)
+    while (_running && !_stopRequested.load())
     {
         // Poll with a timeout so stop() clearing _running is noticed without blocking in accept().
         pollfd pfd{};
@@ -269,24 +274,28 @@ void NodeConnection::serveConnection(int connFd, const char* peerIp)
 
 void NodeConnection::stop()
 {
-    // run() closes _listenFd on its own thread once it sees this; closing it here would race
-    // with the poll()/accept() there.
+    // _stopRequested latches even if run() has not started yet; run() closes _listenFd on its own
+    // thread once it sees this, so we don't close it here (that would race the poll()/accept()).
+    _stopRequested = true;
     _running = false;
 
-    // Shut down active connections so workers blocked in recv() return; otherwise the join below
-    // hangs on an idle-but-open connection. Each worker still closes its own fd.
+    // Shut down active connections so workers blocked in recv() return and their loops exit.
+    // Each worker still closes its own fd.
+    std::lock_guard<std::mutex> lock(_activeConnectionFdsMutex);
+    for (int fd : _activeConnectionFds)
     {
-        std::lock_guard<std::mutex> lock(_activeConnectionFdsMutex);
-        for (int fd : _activeConnectionFds)
-        {
-            ::shutdown(fd, SHUT_RDWR);
-        }
+        ::shutdown(fd, SHUT_RDWR);
     }
+}
 
+void NodeConnection::joinConnections()
+{
+    // Called after the run() thread is joined, so no new workers can be spawned here.
     std::vector<std::thread> threads;
     {
         std::lock_guard<std::mutex> lock(_connectionThreadsMutex);
         threads.swap(_connectionThreads);
+        _finishedThreadIds.clear();
     }
     for (auto& t : threads)
     {
@@ -294,6 +303,10 @@ void NodeConnection::stop()
         {
             t.join();
         }
+    }
+    {
+        std::lock_guard<std::mutex> lock(_activeConnectionFdsMutex);
+        _activeConnectionFds.clear();
     }
 }
 

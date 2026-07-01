@@ -86,8 +86,9 @@ int main()
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    connection.stop(); // main-thread teardown: shuts down connections, joins workers
-    runThread.join();
+    connection.stop();            // signal the accept loop to exit and unblock workers
+    runThread.join();             // run() fully exits, so it can no longer spawn workers
+    connection.joinConnections(); // now safe to join every worker thread
 
     std::cout << "Qubic OC machine node stopped\n";
     return 0;

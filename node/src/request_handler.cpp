@@ -55,6 +55,13 @@ HandleResult RequestHandler::handleInvocationBody(const std::uint8_t* body, std:
         return HandleResult::BadSignatureCount;
     }
 
+    // An OC request is at most MAX_OC_REQUEST_SIZE by protocol; reject oversized ones here so
+    // handlers can trust requestSize without re-checking.
+    if (hdr.requestSize > oc_common::MAX_OC_REQUEST_SIZE)
+    {
+        return HandleResult::SizeMismatch;
+    }
+
     // Validate that the declared request + signer bytes exactly fill the body.
     const std::uint64_t expected =
         sizeof(OcMachineInvocation) +

@@ -25,7 +25,13 @@ public:
     bool start();
 
     void run();
+
+    // Signal run() to stop. Does NOT join connection threads; call joinConnections() after
+    // joining the run() thread (so run() cannot spawn more workers afterwards).
     void stop();
+
+    // Join all connection worker threads. Call only after the run() thread has been joined.
+    void joinConnections();
 
 private:
     bool isWhitelisted(const std::string& ip) const;
@@ -38,6 +44,9 @@ private:
     const oc_common::Config& _config;
     RequestHandler& _handler;
     int _listenFd = -1;
+    // _stopRequested latches a stop that may arrive before run() starts; run() checks it so it
+    // cannot clobber it by setting _running = true.
+    std::atomic<bool> _stopRequested{false};
     std::atomic<bool> _running{false};
 
     // One worker thread per connection; _finishedThreadIds marks workers ready to be reaped.
