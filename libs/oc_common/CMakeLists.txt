@@ -1,4 +1,4 @@
-# Shared library: OC wire-message definitions + runtime config.
+# Shared library: OC wire-message definitions + runtime config + minimal HTTP client.
 #
 # NOTE: signature verification (FourQ/SchnorrQ) is intentionally NOT compiled here. Mirroring
 # the OM machine, the OC machine trusts the bundle: a Core node only sends an OcMachineInvocation
@@ -7,7 +7,8 @@
 # later it needs a GCC/Clang shim for Qubic Core's MSVC-only four_q.h (see git history / project notes).
 
 add_library(oc_common STATIC
-    src/config.cpp)
+    src/config.cpp
+    src/http_client.cpp)
 
 target_include_directories(oc_common PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include)

@@ -37,7 +37,8 @@ std::unique_ptr<oc_interfaces::BaseOcService> makeHandler(const oc_common::Confi
     switch (config.interfaceIndex)
     {
     case oc_interfaces::mock::MockOcService::kInterfaceIndex:
-        return std::make_unique<oc_interfaces::mock::MockOcService>("mock_oc_sink.txt");
+        return std::make_unique<oc_interfaces::mock::MockOcService>(
+            "mock_oc_sink.txt", config.mockServiceHost, config.mockServicePort, config.machineId);
     default:
         return nullptr;
     }
@@ -52,6 +53,17 @@ int main()
     std::cout << "Qubic OC machine node starting (port " << config.port
               << ", interfaceIndex " << config.interfaceIndex
               << ", verifySignatures " << (config.verifySignatures ? "on" : "off") << ")\n";
+
+    if (config.mockServiceHost.empty())
+    {
+        std::cout << "Mock service forwarding: disabled (set OC_MACHINE_MOCK_SERVICE_HOST to enable)\n";
+    }
+    else
+    {
+        std::cout << "Mock service forwarding: http://" << config.mockServiceHost << ":"
+                  << config.mockServicePort << "/ingest"
+                  << (config.machineId.empty() ? "" : " as \"" + config.machineId + "\"") << "\n";
+    }
 
     if (config.verifySignatures)
     {

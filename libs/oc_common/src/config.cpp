@@ -68,6 +68,10 @@ Config Config::fromEnvironment()
     cfg.whitelist = splitCsv(envOr("OC_MACHINE_WHITELIST", "127.0.0.1"));
     cfg.verifySignatures = std::atoi(envOr("OC_MACHINE_VERIFY_SIGNATURES", "1")) != 0;
     cfg.interfaceIndex = parseUint16("OC_MACHINE_INTERFACE_INDEX", envOr("OC_MACHINE_INTERFACE_INDEX", "0"), 0);
+    cfg.mockServiceHost = envOr("OC_MACHINE_MOCK_SERVICE_HOST", "");
+    cfg.mockServicePort =
+        parseUint16("OC_MACHINE_MOCK_SERVICE_PORT", envOr("OC_MACHINE_MOCK_SERVICE_PORT", "8000"), 8000);
+    cfg.machineId = envOr("OC_MACHINE_ID", "");
     return cfg;
 }
 

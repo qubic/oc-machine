@@ -95,6 +95,8 @@ HandleResult RequestHandler::handleInvocationBody(const std::uint8_t* body, std:
     invocation.requestSize = hdr.requestSize;
     invocation.signers = signers;
     invocation.signatureCount = hdr.signatureCount;
+    invocation.rawBody = body;
+    invocation.rawBodySize = bodySize;
 
     return _handler->handle(invocation) ? HandleResult::Ok : HandleResult::HandlerFailed;
 }

@@ -30,6 +30,13 @@ struct AuthorizedInvocation
     // Authorization bundle: signatureCount (== QUORUM) signer entries.
     const oc_common::SignerEntry* signers;
     std::uint16_t signatureCount;
+
+    // The complete raw message body exactly as received from Core (OcMachineInvocation header +
+    // request bytes + signer entries; the 8-byte framing header is NOT included). Handlers that
+    // forward the bundle to an external verifier MUST forward these bytes verbatim — any
+    // re-encoding risks breaking the signatures.
+    const std::uint8_t* rawBody;
+    std::uint32_t rawBodySize;
 };
 
 class BaseOcService

@@ -21,3 +21,14 @@ OC_MACHINE_VERIFY_SIGNATURES=1
 # Which interface this machine serves (matches OC_INTERFACE_INDEX in Qubic Core).
 # 0 = Mock
 OC_MACHINE_INTERFACE_INDEX=0
+
+# Public mock interface service to forward authorized bundles to (IP or hostname).
+# Leave empty to disable forwarding (local sink only). The machine POSTs the raw
+# OcMachineInvocation body bytes to http://<host>:<port>/ingest; the service
+# re-verifies the 451 signatures itself, so forwarding needs no local verification.
+OC_MACHINE_MOCK_SERVICE_HOST=
+OC_MACHINE_MOCK_SERVICE_PORT=8000
+
+# Identifier reported to the mock service (X-OC-Machine-Id header) so it can count
+# distinct machines per invocation. Empty = the service uses this machine's IP.
+OC_MACHINE_ID=

@@ -79,6 +79,13 @@ cmake --build build
 # binaries land in build/bin/
 ```
 
+## Configuration
+
+The node is configured via environment variables; see `example_env` for the full
+annotated list. Key settings: listen port and bind address, the Core-node IP whitelist,
+the served `interfaceIndex`, the signature-verification toggle, and the mock-service
+forwarding target (`OC_MACHINE_MOCK_SERVICE_HOST` / `_PORT` / `OC_MACHINE_ID`).
+
 ## Status
 
 Working Mock reference. The node listens, accepts whitelisted Core connections, and runs
@@ -86,11 +93,14 @@ a streaming receive loop that survives multiplexed Core traffic (it consumes eve
 message and acts only on `OcMachineInvocation`). It validates framing, message type,
 signature count, and exact size, then dispatches to the interface handler. The Mock
 handler writes the request value to a local sink, verified end-to-end via
-`send_test_invocation`.
+`send_test_invocation`, and — when `OC_MACHINE_MOCK_SERVICE_HOST` is set — forwards the
+raw bundle bytes verbatim to the mock interface service via HTTP `POST /ingest`
+(best-effort, no retry; the service re-verifies the 451 signatures itself).
 
 Not yet implemented:
 
-- **Signature verification.** The 451 SchnorrQ signatures are not re-verified. The Core
+- **Signature verification.** The 451 SchnorrQ signatures are not re-verified;
+  `OC_MACHINE_VERIFY_SIGNATURES=1` currently only prints a startup warning. The Core
   node only sends a bundle after confirming quorum, so a trusted operator MAY skip this
   (the OM machine does the same). It is required only for interfaces that forward to an
   external verifier (e.g. an EVM contract).

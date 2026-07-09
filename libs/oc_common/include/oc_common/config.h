@@ -29,6 +29,17 @@ struct Config
     // Which OC interface this machine serves (matches OC_INTERFACE_INDEX in Qubic Core).
     std::uint16_t interfaceIndex = 0;
 
+    // Mock interface service to forward authorized bundles to (IP or hostname). Empty = do not
+    // forward. The machine POSTs the raw OcMachineInvocation body bytes (exactly as received
+    // from Core, no re-encoding) to http://<host>:<port>/ingest; the service re-verifies the
+    // 451 signatures itself.
+    std::string mockServiceHost;
+    std::uint16_t mockServicePort = 8000;
+
+    // Identifier sent as X-OC-Machine-Id so the service can count distinct reporting machines
+    // (its replication factor). Empty = the service falls back to the sender's IP.
+    std::string machineId;
+
     // Load configuration from environment variables. Returns a Config with defaults
     // for any variable not set.
     static Config fromEnvironment();
