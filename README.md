@@ -79,6 +79,24 @@ cmake --build build
 # binaries land in build/bin/
 ```
 
+### Docker
+
+```bash
+docker build -f docker/Dockerfile -t oc-machine:latest .
+
+# Simple deployment (bridge network, port mapping); copy example_env to docker/.env first:
+docker compose -f docker/docker-compose.yml up -d
+
+# Co-located with a Core node on the same host: use host networking so the machine can
+# bind a loopback alias matching the node's ocMachineIPs entry, e.g.
+docker run -d --name oc-machine --network host --restart unless-stopped \
+  -e OC_MACHINE_BIND=127.0.0.2 -e OC_MACHINE_WHITELIST=127.0.0.1 \
+  -v "$PWD/data:/opt/qubic/oc-machine/data" \
+  oc-machine:latest
+# One image, N machines: give each container its own --name, OC_MACHINE_BIND,
+# OC_MACHINE_ID, and data volume.
+```
+
 ## Configuration
 
 The node is configured via environment variables; see `example_env` for the full

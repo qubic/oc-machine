@@ -1,0 +1,17 @@
+services:
+  oc-machine-node:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: oc-machine:latest
+    container_name: oc-machine-node
+    # Configuration via environment; copy ../example_env to .env and edit.
+    env_file:
+      - .env
+    volumes:
+      # Persists the mock sink file (mock_oc_sink.txt) across restarts.
+      - ./data:/opt/qubic/oc-machine/data
+    ports:
+      # Must match OC_MACHINE_PORT (mainnet 21841, testnet 31841).
+      - "31841:31841"
+    restart: unless-stopped
