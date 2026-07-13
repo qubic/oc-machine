@@ -84,11 +84,14 @@ cmake --build build
 ```bash
 docker build -f docker/Dockerfile -t oc-machine:latest .
 
-# Simple deployment (bridge network, port mapping); copy example_env to docker/.env first:
+# Production shape (bridge network, port mapping); copy example_env to docker/.env first.
+# Keep the default OC_MACHINE_BIND=0.0.0.0 and set OC_MACHINE_WHITELIST to the real IPs
+# of your Core nodes (comma-separated) — the port mapping preserves remote source IPs,
+# so the whitelist sees the Core nodes' real addresses:
 docker compose -f docker/docker-compose.yml up -d
 
-# Co-located with a Core node on the same host: use host networking so the machine can
-# bind a loopback alias matching the node's ocMachineIPs entry, e.g.
+# Dev/testnet, co-located with a Core node on the same host: use host networking so the
+# machine can bind a loopback alias matching the node's ocMachineIPs entry, e.g.
 docker run -d --name oc-machine --network host --restart unless-stopped \
   -e OC_MACHINE_BIND=127.0.0.2 -e OC_MACHINE_WHITELIST=127.0.0.1 \
   -v "$PWD/data:/opt/qubic/oc-machine/data" \
