@@ -48,6 +48,8 @@ std::unique_ptr<oc_interfaces::BaseOcService> makeHandler(const oc_common::Confi
 
 int main()
 {
+    std::cout << std::unitbuf;
+
     const oc_common::Config config = oc_common::Config::fromEnvironment();
 
     std::cout << "Qubic OC machine node starting (port " << config.port
