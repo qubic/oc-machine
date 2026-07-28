@@ -11,10 +11,11 @@ namespace oc_interfaces::mock
 {
 
 MockOcService::MockOcService(std::string sinkPath, std::string forwardHost,
-                             std::uint16_t forwardPort, std::string machineId)
+                             std::uint16_t forwardPort, bool forwardTls, std::string machineId)
     : _sinkPath(std::move(sinkPath)),
       _forwardHost(std::move(forwardHost)),
       _forwardPort(forwardPort),
+      _forwardTls(forwardTls),
       _machineId(std::move(machineId))
 {
 }
@@ -72,8 +73,9 @@ bool MockOcService::forwardToMockService(const AuthorizedInvocation& invocation)
     // Forward the body bytes verbatim; the service re-verifies the 451 signatures itself.
     // Best-effort: no retry — every Core node pushes the same bundle to every OC machine,
     // so the service's replication across machines covers a lost delivery.
-    const oc_common::HttpPostResult result = oc_common::httpPost(
-        _forwardHost, _forwardPort, "/ingest", invocation.rawBody, invocation.rawBodySize, headers);
+    const oc_common::HttpPostResult result =
+        oc_common::httpPost(_forwardHost, _forwardPort, "/ingest", invocation.rawBody,
+                            invocation.rawBodySize, headers, _forwardTls);
 
     if (!result.ok)
     {

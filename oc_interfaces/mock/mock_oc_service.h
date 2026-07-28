@@ -5,7 +5,7 @@
 // invocation reached the external side end-to-end.
 //
 // Optionally it also forwards the RAW bundle bytes to the public mock interface service
-// (POST http://<host>:<port>/ingest), which re-verifies the 451 signatures and displays the
+// (POST http(s)://<host>:<port>/ingest), which re-verifies the 451 signatures and displays the
 // invocation. Forwarding the exact bytes received from Core keeps the signatures verifiable —
 // no re-encoding in the trust path.
 
@@ -34,10 +34,12 @@ class MockOcService : public BaseOcService
 public:
     static constexpr std::uint16_t kInterfaceIndex = 0;
 
-    // forwardHost empty = local sink only. machineId is sent as X-OC-Machine-Id so the service
-    // can count distinct reporting machines; empty = the service falls back to the sender's IP.
+    // forwardHost empty = local sink only. forwardTls selects https (certificate verified against
+    // the system trust store). machineId is sent as X-OC-Machine-Id so the service can count
+    // distinct reporting machines; empty = the service falls back to the sender's IP.
     explicit MockOcService(std::string sinkPath, std::string forwardHost = {},
-                           std::uint16_t forwardPort = 8000, std::string machineId = {});
+                           std::uint16_t forwardPort = 80, bool forwardTls = false,
+                           std::string machineId = {});
 
     std::uint16_t interfaceIndex() const override
     {
@@ -52,6 +54,7 @@ private:
     std::string _sinkPath;
     std::string _forwardHost;
     std::uint16_t _forwardPort;
+    bool _forwardTls;
     std::string _machineId;
 };
 

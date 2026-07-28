@@ -38,7 +38,8 @@ std::unique_ptr<oc_interfaces::BaseOcService> makeHandler(const oc_common::Confi
     {
     case oc_interfaces::mock::MockOcService::kInterfaceIndex:
         return std::make_unique<oc_interfaces::mock::MockOcService>(
-            "mock_oc_sink.txt", config.mockServiceHost, config.mockServicePort, config.machineId);
+            "mock_oc_sink.txt", config.mockServiceHost, config.mockServicePort,
+            config.mockServiceTls, config.machineId);
     default:
         return nullptr;
     }
@@ -58,12 +59,12 @@ int main()
 
     if (config.mockServiceHost.empty())
     {
-        std::cout << "Mock service forwarding: disabled (set OC_MACHINE_MOCK_SERVICE_HOST to enable)\n";
+        std::cout << "Mock service forwarding: disabled (set OC_MACHINE_MOCK_SERVICE_URL to enable)\n";
     }
     else
     {
-        std::cout << "Mock service forwarding: http://" << config.mockServiceHost << ":"
-                  << config.mockServicePort << "/ingest"
+        std::cout << "Mock service forwarding: " << (config.mockServiceTls ? "https://" : "http://")
+                  << config.mockServiceHost << ":" << config.mockServicePort << "/ingest"
                   << (config.machineId.empty() ? "" : " as \"" + config.machineId + "\"") << "\n";
     }
 

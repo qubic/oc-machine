@@ -105,7 +105,13 @@ docker run -d --name oc-machine --network host --restart unless-stopped \
 The node is configured via environment variables; see `example_env` for the full
 annotated list. Key settings: listen port and bind address, the Core-node IP whitelist,
 the served `interfaceIndex`, the signature-verification toggle, and the mock-service
-forwarding target (`OC_MACHINE_MOCK_SERVICE_HOST` / `_PORT` / `OC_MACHINE_ID`).
+forwarding target (`OC_MACHINE_MOCK_SERVICE_URL` / `OC_MACHINE_ID`).
+
+`OC_MACHINE_MOCK_SERVICE_URL` takes a full `http://host[:port]` or `https://host[:port]`
+(the host may be an IP or a domain name; the port defaults to 80 / 443). With `https` the
+server certificate is verified against the system CA store and must match the host name in
+the URL — there is no opt-out, so point it at the name the certificate was issued for.
+Container deployments therefore need `ca-certificates` present in the image.
 
 ## Status
 
@@ -114,8 +120,8 @@ a streaming receive loop that survives multiplexed Core traffic (it consumes eve
 message and acts only on `OcMachineInvocation`). It validates framing, message type,
 signature count, and exact size, then dispatches to the interface handler. The Mock
 handler writes the request value to a local sink, verified end-to-end via
-`send_test_invocation`, and — when `OC_MACHINE_MOCK_SERVICE_HOST` is set — forwards the
-raw bundle bytes verbatim to the mock interface service via HTTP `POST /ingest`
+`send_test_invocation`, and — when `OC_MACHINE_MOCK_SERVICE_URL` is set — forwards the
+raw bundle bytes verbatim to the mock interface service via HTTP(S) `POST /ingest`
 (best-effort, no retry; the service re-verifies the 451 signatures itself).
 
 Not yet implemented:

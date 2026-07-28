@@ -58,6 +58,91 @@ std::uint16_t parseUint16(const char* name, const char* value, std::uint16_t def
     }
 }
 
+// Parse "scheme://host[:port]" into cfg. Anything unparsable disables forwarding rather than
+// silently targeting the wrong endpoint. A trailing path is rejected too: the POST path is
+// always /ingest, so a URL carrying one would not mean what its author expects.
+void parseServiceUrl(const std::string& url, Config& cfg)
+{
+    if (url.empty())
+    {
+        return;
+    }
+
+    bool tls = false;
+    std::string rest;
+    if (url.rfind("https://", 0) == 0)
+    {
+        tls = true;
+        rest = url.substr(8);
+    }
+    else if (url.rfind("http://", 0) == 0)
+    {
+        rest = url.substr(7);
+    }
+    else
+    {
+        std::cerr << "Config: OC_MACHINE_MOCK_SERVICE_URL \"" << url
+                  << "\" must start with http:// or https://; forwarding disabled\n";
+        return;
+    }
+
+    if (const auto slash = rest.find('/'); slash != std::string::npos)
+    {
+        // Tolerate a bare trailing slash, reject a real path.
+        if (rest.size() != slash + 1)
+        {
+            std::cerr << "Config: OC_MACHINE_MOCK_SERVICE_URL \"" << url
+                      << "\" must not contain a path (the POST target is always /ingest);"
+                         " forwarding disabled\n";
+            return;
+        }
+        rest.resize(slash);
+    }
+
+    std::uint16_t port = tls ? 443 : 80;
+    if (const auto colon = rest.rfind(':'); colon != std::string::npos)
+    {
+        const std::string portText = rest.substr(colon + 1);
+        rest.resize(colon);
+
+        // Parsed strictly, not via parseUint16: a bad port here must disable forwarding rather
+        // than fall back to the scheme default, which would silently target the wrong port.
+        unsigned long parsed = 0;
+        try
+        {
+            std::size_t consumed = 0;
+            parsed = std::stoul(portText, &consumed);
+            if (consumed != portText.size())
+            {
+                parsed = 0;
+            }
+        }
+        catch (const std::exception&)
+        {
+            parsed = 0;
+        }
+
+        if (parsed == 0 || parsed > 0xFFFF)
+        {
+            std::cerr << "Config: OC_MACHINE_MOCK_SERVICE_URL \"" << url
+                      << "\" has an invalid port \"" << portText << "\"; forwarding disabled\n";
+            return;
+        }
+        port = static_cast<std::uint16_t>(parsed);
+    }
+
+    if (rest.empty())
+    {
+        std::cerr << "Config: OC_MACHINE_MOCK_SERVICE_URL \"" << url
+                  << "\" has an empty host; forwarding disabled\n";
+        return;
+    }
+
+    cfg.mockServiceHost = rest;
+    cfg.mockServicePort = port;
+    cfg.mockServiceTls = tls;
+}
+
 } // namespace
 
 Config Config::fromEnvironment()
@@ -68,9 +153,7 @@ Config Config::fromEnvironment()
     cfg.whitelist = splitCsv(envOr("OC_MACHINE_WHITELIST", "127.0.0.1"));
     cfg.verifySignatures = std::atoi(envOr("OC_MACHINE_VERIFY_SIGNATURES", "1")) != 0;
     cfg.interfaceIndex = parseUint16("OC_MACHINE_INTERFACE_INDEX", envOr("OC_MACHINE_INTERFACE_INDEX", "0"), 0);
-    cfg.mockServiceHost = envOr("OC_MACHINE_MOCK_SERVICE_HOST", "");
-    cfg.mockServicePort =
-        parseUint16("OC_MACHINE_MOCK_SERVICE_PORT", envOr("OC_MACHINE_MOCK_SERVICE_PORT", "8000"), 8000);
+    parseServiceUrl(envOr("OC_MACHINE_MOCK_SERVICE_URL", ""), cfg);
     cfg.machineId = envOr("OC_MACHINE_ID", "");
     return cfg;
 }

@@ -14,3 +14,7 @@ target_include_directories(oc_common PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_compile_features(oc_common PUBLIC cxx_std_20)
+
+# OpenSSL backs the https option of httpPost (OC_MACHINE_MOCK_SERVICE_URL=https://...).
+find_package(OpenSSL REQUIRED)
+target_link_libraries(oc_common PRIVATE OpenSSL::SSL OpenSSL::Crypto)

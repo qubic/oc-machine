@@ -6,7 +6,7 @@ FROM ${BASE_IMAGE} AS build
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends build-essential cmake && \
+    apt-get install -y --no-install-recommends build-essential cmake libssl-dev && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
@@ -21,7 +21,7 @@ FROM ${BASE_IMAGE} AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libstdc++6 && \
+    apt-get install -y --no-install-recommends libstdc++6 libssl3 ca-certificates && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -r oc && useradd -r -g oc oc && \
