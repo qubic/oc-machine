@@ -36,6 +36,6 @@ USER oc
 # Node writes its sink file (mock_oc_sink.txt) to the working directory.
 WORKDIR /opt/qubic/oc-machine/data
 
-EXPOSE 31841
+EXPOSE 21841
 
 CMD ["oc_machine_node"]

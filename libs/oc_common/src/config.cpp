@@ -148,11 +148,13 @@ void parseServiceUrl(const std::string& url, Config& cfg)
 Config Config::fromEnvironment()
 {
     Config cfg;
-    cfg.port = parseUint16("OC_MACHINE_PORT", envOr("OC_MACHINE_PORT", "31841"), 31841);
+    cfg.port = parseUint16("OC_MACHINE_PORT", envOr("OC_MACHINE_PORT", "21841"), 21841);
     cfg.bindAddress = envOr("OC_MACHINE_BIND", "0.0.0.0");
     cfg.whitelist = splitCsv(envOr("OC_MACHINE_WHITELIST", "127.0.0.1"));
     cfg.verifySignatures = std::atoi(envOr("OC_MACHINE_VERIFY_SIGNATURES", "1")) != 0;
     cfg.interfaceIndex = parseUint16("OC_MACHINE_INTERFACE_INDEX", envOr("OC_MACHINE_INTERFACE_INDEX", "0"), 0);
+    // Empty disables forwarding; example_env ships the public service as the value operators
+    // start from, so a stock deployment forwards without them having to look the URL up.
     parseServiceUrl(envOr("OC_MACHINE_MOCK_SERVICE_URL", ""), cfg);
     cfg.machineId = envOr("OC_MACHINE_ID", "");
     return cfg;
