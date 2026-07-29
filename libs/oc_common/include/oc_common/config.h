@@ -15,10 +15,7 @@ struct Config
     // TCP port to listen on for incoming Core-node connections.
     std::uint16_t port = 21841;
 
-    // Local address to bind the listener to. Defaults to all interfaces. This shares the Core
-    // node's default port, so co-locating with a Core node on one host requires binding a
-    // distinct loopback IP (e.g. 127.0.0.2) or changing the port; otherwise the two listeners
-    // collide.
+    // Local address to bind the listener to. Defaults to all interfaces.
     std::string bindAddress = "0.0.0.0";
 
     // Core-node IPs allowed to connect (IP whitelist). Dotted-quad strings.
