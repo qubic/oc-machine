@@ -107,8 +107,11 @@ annotated list. Key settings: listen port and bind address, the Core-node IP whi
 the served `interfaceIndex`, the signature-verification toggle, and the mock-service
 forwarding target (`OC_MACHINE_MOCK_SERVICE_URL` / `OC_MACHINE_ID`).
 
-`OC_MACHINE_MOCK_SERVICE_URL` takes a full `http://host[:port]` or `https://host[:port]`
-(the host may be an IP or a domain name; the port defaults to 80 / 443). With `https` the
+`OC_MACHINE_MOCK_SERVICE_URL` is preset in `example_env` to the public service,
+`https://ocmock.qubic.org`, so a stock deployment forwards without extra configuration;
+clear it to disable forwarding and keep the local sink only. It takes a full
+`http://host[:port]` or `https://host[:port]` (the host may be an IP or a domain name; the
+port defaults to 80 / 443). The listen port (`OC_MACHINE_PORT`) defaults to 21841. With `https` the
 server certificate is verified against the system CA store and must match the host name in
 the URL — there is no opt-out, so point it at the name the certificate was issued for.
 Container deployments therefore need `ca-certificates` present in the image.
