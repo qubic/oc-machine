@@ -90,14 +90,8 @@ docker build -f docker/Dockerfile -t oc-machine:latest .
 # so the whitelist sees the Core nodes' real addresses:
 docker compose -f docker/docker-compose.yml up -d
 
-# Dev/testnet, co-located with a Core node on the same host: use host networking so the
-# machine can bind a loopback alias matching the node's ocMachineIPs entry, e.g.
-docker run -d --name oc-machine --network host --restart unless-stopped \
-  -e OC_MACHINE_BIND=127.0.0.2 -e OC_MACHINE_WHITELIST=127.0.0.1 \
-  -v "$PWD/data:/opt/qubic/oc-machine/data" \
-  oc-machine:latest
-# One image, N machines: give each container its own --name, OC_MACHINE_BIND,
-# OC_MACHINE_ID, and data volume.
+# One image, N machines: give each container its own --name, OC_MACHINE_ID, port mapping,
+# and data volume.
 ```
 
 ## Configuration
@@ -107,8 +101,11 @@ annotated list. Key settings: listen port and bind address, the Core-node IP whi
 the served `interfaceIndex`, the signature-verification toggle, and the mock-service
 forwarding target (`OC_MACHINE_MOCK_SERVICE_URL` / `OC_MACHINE_ID`).
 
-`OC_MACHINE_MOCK_SERVICE_URL` takes a full `http://host[:port]` or `https://host[:port]`
-(the host may be an IP or a domain name; the port defaults to 80 / 443). With `https` the
+`OC_MACHINE_MOCK_SERVICE_URL` is preset in `example_env` to the public service,
+`https://ocmock.qubic.org`, so a stock deployment forwards without extra configuration;
+clear it to disable forwarding and keep the local sink only. It takes a full
+`http://host[:port]` or `https://host[:port]` (the host may be an IP or a domain name; the
+port defaults to 80 / 443). The listen port (`OC_MACHINE_PORT`) defaults to 21841. With `https` the
 server certificate is verified against the system CA store and must match the host name in
 the URL — there is no opt-out, so point it at the name the certificate was issued for.
 Container deployments therefore need `ca-certificates` present in the image.

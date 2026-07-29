@@ -37,7 +37,7 @@ struct MockOcRequest
 int main(int argc, char** argv)
 {
     const char* host = (argc > 1) ? argv[1] : "127.0.0.1";
-    const std::uint16_t port = static_cast<std::uint16_t>((argc > 2) ? std::atoi(argv[2]) : 31841);
+    const std::uint16_t port = static_cast<std::uint16_t>((argc > 2) ? std::atoi(argv[2]) : 21841);
     const std::uint64_t value = (argc > 3) ? std::strtoull(argv[3], nullptr, 10) : 42;
 
     // Build the message body: OcMachineInvocation header + MockOcRequest + QUORUM SignerEntries.

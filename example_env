@@ -2,20 +2,18 @@
 # Copy to .env and edit. Do NOT commit your real .env.
 
 # TCP port the OC machine listens on for incoming Core-node connections.
-# Mirrors the Qubic network port convention (mainnet 21841, testnet 31841).
-OC_MACHINE_PORT=31841
+# Mirrors the Qubic network port convention. Default 21841.
+OC_MACHINE_PORT=21841
 
-# Local address to bind the listener to. Default 0.0.0.0 (all interfaces) — keep that for
-# production. Only set a specific loopback IP (e.g. 127.0.0.2) to co-locate with a Core
-# node on the same host and port (dev/testnet setups).
+# Local address to bind the listener to. Default 0.0.0.0 (all interfaces) — keep that
+# unless you need to restrict the listener to one interface.
 OC_MACHINE_BIND=0.0.0.0
 
 # Comma-separated list of Core-node IPs allowed to connect (IP whitelist),
 # e.g. OC_MACHINE_WHITELIST=203.0.113.10,203.0.113.11
 # Only these Core nodes may push OcMachineInvocation bundles to this machine.
-# In production, list the real public IPs of your Core nodes; 127.0.0.1 only works
-# when the Core node runs on the same host.
-OC_MACHINE_WHITELIST=127.0.0.1
+# List the public IPs of your Core nodes; a node not listed here is silently dropped.
+OC_MACHINE_WHITELIST=
 
 # Whether to re-verify the 451 SchnorrQ signatures in each bundle before acting.
 # The Core node only sends bundles after confirming quorum, so this MAY be off for
@@ -29,17 +27,19 @@ OC_MACHINE_INTERFACE_INDEX=0
 # Public mock interface service to forward authorized bundles to, as a full URL:
 #   http://<host>[:port]   or   https://<host>[:port]
 # Host may be an IP or a domain name. Port defaults to 80 (http) / 443 (https).
-# Leave empty to disable forwarding (local sink only). The machine POSTs the raw
-# OcMachineInvocation body bytes to <url>/ingest; the service re-verifies the 451
-# signatures itself, so forwarding needs no local verification.
+# Preset below to the public service, https://ocmock.qubic.org — most operators should
+# leave it as-is. Clear it (empty value) to disable forwarding and keep the local sink
+# only. The machine POSTs the raw OcMachineInvocation body bytes to <url>/ingest; the
+# service re-verifies the 451 signatures itself, so forwarding needs no local
+# verification.
 #
 # With https the server certificate is verified against the system CA store and must
 # match the host name in this URL — there is no way to turn that off, so point this at
 # the name the certificate was issued for, not at an IP address.
 # Examples:
 #   OC_MACHINE_MOCK_SERVICE_URL=http://127.0.0.1:8000
-#   OC_MACHINE_MOCK_SERVICE_URL=https://service.example.org
-OC_MACHINE_MOCK_SERVICE_URL=
+#   OC_MACHINE_MOCK_SERVICE_URL=
+OC_MACHINE_MOCK_SERVICE_URL=https://ocmock.qubic.org
 
 # Identifier reported to the mock service (X-OC-Machine-Id header) so it can count
 # distinct machines per invocation. Empty = the service uses this machine's IP.

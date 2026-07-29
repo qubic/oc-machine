@@ -12,6 +12,6 @@ services:
       # Persists the mock sink file (mock_oc_sink.txt) across restarts.
       - ./data:/opt/qubic/oc-machine/data
     ports:
-      # Must match OC_MACHINE_PORT (mainnet 21841, testnet 31841).
-      - "31841:31841"
+      # Must match OC_MACHINE_PORT (default 21841).
+      - "21841:21841"
     restart: unless-stopped
